@@ -78,6 +78,25 @@ mark{background:var(--hit);color:var(--hit-ink);border-radius:2px;padding:0 1px}
 .res .go:hover{border-color:var(--pick);color:var(--pick)}
 .empty{color:var(--muted)}
 .foot{color:var(--muted);font-size:13px;max-width:70ch}
+.status{margin:-6px 0 0;font:400 12px var(--font-mono);color:var(--muted)}
+.status:empty{display:none}
+details.notes{margin-top:12px;border-top:1px dashed var(--line);padding-top:8px}
+details.notes summary{cursor:pointer;font:500 12px var(--font-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+details.notes.has summary{color:var(--pick)}
+details.notes.has summary::after{content:' \2022'}
+details.notes textarea{display:block;width:100%;margin-top:8px;min-height:5.5em;resize:vertical;font:15px/1.5 var(--font-body);padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+details.notes textarea:focus-visible{outline:2px solid var(--pick);outline-offset:1px}
+.daynote{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:2px 16px 12px}
+.daynote details.notes{margin:0;border:0;padding-top:10px}
+.notesview{display:grid;gap:14px}
+.nv-bar{display:flex;gap:8px;flex-wrap:wrap}
+.act{font:500 13px var(--font-mono);padding:8px 14px;border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer}
+.nv-day{font-size:28px;font-weight:600;margin-top:10px}
+.when{font:500 12px var(--font-mono);color:var(--muted);margin-bottom:6px}
+.notetext{white-space:pre-wrap;margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--pick-soft)}
+.notetext .lab{font:500 11px var(--font-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--pick);display:block}
+#exp-out{font-size:13px;color:var(--muted)}
+#exp-out textarea{display:block;width:100%;min-height:10em;margin-top:6px;font:13px/1.4 var(--font-mono);padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 @media (max-width:560px){
   h1{font-size:34px}
   .block{grid-template-columns:1fr;gap:6px}
@@ -102,6 +121,8 @@ mark{background:var(--hit);color:var(--hit-ink);border-radius:2px;padding:0 1px}
     <button id="clear" type="button" hidden>Clear</button>
   </div>
 
+  <p id="status" class="status" role="status"></p>
+
   <details class="how">
     <summary>How the session types work</summary>
     <dl>
@@ -121,6 +142,7 @@ mark{background:var(--hit);color:var(--hit-ink);border-radius:2px;padding:0 1px}
       <button role="tab" id="tab-wed" data-day="wed">Wed 21</button>
       <button role="tab" id="tab-thu" data-day="thu">Thu 22</button>
       <button role="tab" id="tab-fri" data-day="fri">Fri 23</button>
+      <button role="tab" id="tab-notes" data-day="notes">My notes</button>
     </nav>
     <div class="legend" aria-label="Topic tags">
       <span class="tag t-d">Drilling</span><span class="tag t-c">Completions</span><span class="tag t-ai">AI / data</span><span class="tag t-o">Other</span>
@@ -299,7 +321,7 @@ function renderBlock(b){
       b.kind==='choice'?'<span class="badge b-pick">Your pick</span>':'<span class="badge b-open">'+esc(b.label)+'</span>';
     h+=badge+'<h3>'+titleHtml(main)+'</h3>'+metaHtml(main)+noteHtml(main);
     if(main.why&&cur===b.rec)h+='<p class="why">'+hl(main.why)+'</p>';
-    h+=peopleHtml(main)+'<div class="tags">'+tagsHtml(main.tags)+'</div>';
+    h+=peopleHtml(main)+'<div class="tags">'+tagsHtml(main.tags)+'</div>'+(b.kind!=='info'?noteBox(main.id):'');
   }else{
     h+='<span class="badge b-open">'+esc(b.label)+'</span>';
   }
@@ -322,10 +344,12 @@ var root=document.getElementById('day');
 var tabs=document.querySelectorAll('nav button');
 var current='wed';
 function show(day){
-  if(!DAYS[day])day='wed';
+  if(!DAYS[day]&&day!=='notes')day='wed';
   current=day;
-  root.innerHTML='<div style="display:grid;gap:14px">'+DAYS[day].map(renderBlock).join('')+'</div>';
+  root.innerHTML=day==='notes'?renderNotesView():
+    '<div style="display:grid;gap:14px"><div class="daynote">'+noteBox('day-'+day,'Notes for the day')+'</div>'+DAYS[day].map(renderBlock).join('')+'</div>';
   tabs.forEach(function(t){t.setAttribute('aria-selected',t.dataset.day===day?'true':'false')});
+  sizeAll();
 }
 tabs.forEach(function(t){t.addEventListener('click',function(){
   try{history.replaceState(null,'','#'+t.dataset.day)}catch(e){}
@@ -341,7 +365,7 @@ var q=document.getElementById('q'),clr=document.getElementById('clear');
 var browse=document.getElementById('browse'),res=document.getElementById('results');
 function hay(day,b,x){
   return [DAYN[day],b.time,x.code,x.title,x.room,x.note||'',b.label,(x.tags||[]).map(function(k){return TAGN[k]}).join(' '),
-    [].concat(x.mod||[],x.spk||[],x.chair||[]).join(' ')].join(' ').toLowerCase();
+    [].concat(x.mod||[],x.spk||[],x.chair||[]).join(' '),notes[x.id]||''].join(' ').toLowerCase();
 }
 function runSearch(){
   var raw=q.value.trim();
@@ -359,7 +383,7 @@ function runSearch(){
     var cur=picks[r.b.id]||r.b.rec;
     var tagPick=cur===r.x.id&&r.b.kind==='choice'?'<span class="badge b-pick" style="margin:0">Your pick</span>':'';
     return '<div class="card res"><div class="when"><span>'+DAYN[r.day]+' · '+r.b.time+'–'+r.b.end+'</span>'+tagPick+'</div>'+
-      '<h3>'+titleHtml(r.x)+'</h3>'+metaHtml(r.x)+noteHtml(r.x)+peopleHtml(r.x)+'<div class="tags">'+tagsHtml(r.x.tags)+'</div>'+
+      '<h3>'+titleHtml(r.x)+'</h3>'+metaHtml(r.x)+noteHtml(r.x)+peopleHtml(r.x)+myNote(r.x)+'<div class="tags">'+tagsHtml(r.x.tags)+'</div>'+
       '<button class="go" data-day="'+r.day+'" data-block="'+r.b.id+'">Show in schedule</button></div>';
   }).join('');
 }
@@ -373,7 +397,130 @@ res.addEventListener('click',function(e){
   var el=document.getElementById('b-'+g.dataset.block);if(el)el.scrollIntoView({block:'start'});
 });
 
+// ---- notes: private per viewer in the db capability, mirrored to this device
+var LS='atce26-notes',notes={},docExists=false,store=null,synced=false,pending={},timers={},chain=Promise.resolve();
+var statusEl=document.getElementById('status');
+try{notes=JSON.parse(localStorage.getItem(LS)||'{}')||{}}catch(e){notes={}}
+function setStatus(s){statusEl.textContent=s||''}
+function persistLocal(){try{localStorage.setItem(LS,JSON.stringify(notes))}catch(e){}}
+function use(name){
+  try{return (window.claude&&window.claude.use)?Promise.resolve(window.claude.use(name)).catch(function(){return null}):Promise.resolve(null)}catch(e){return Promise.resolve(null)}
+}
+function noteBox(k,label,open){
+  var v=notes[k]||'';
+  return '<details class="notes'+(v.trim()?' has':'')+'" data-k="'+k+'"'+(v.trim()||open?' open':'')+'><summary>'+esc(label||'Notes')+'</summary>'+
+    '<textarea data-note="'+k+'" rows="3" placeholder="Takeaways, names, follow-ups" aria-label="'+esc(label||'Notes')+'">'+esc(v)+'</textarea></details>';
+}
+function myNote(x){var v=(notes[x.id]||'').trim();return v?'<p class="notetext"><span class="lab">My notes</span>'+hl(v)+'</p>':''}
+function autosize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight+2,420)+'px'}
+function sizeAll(){document.querySelectorAll('textarea[data-note]').forEach(autosize)}
+function pushRemote(k){
+  if(!store)return;
+  var text=notes[k]||'';
+  chain=chain.then(function(){
+    var p;
+    if(docExists){var items={};items[k]=text;p=store.update({items:items})}
+    else p=store.set({items:JSON.parse(JSON.stringify(notes))});
+    return p.then(function(){docExists=true;if(notes[k]===text)delete pending[k];setStatus('Notes saved')},
+      function(e){setStatus(e&&e.code==='quota_exceeded'?'Notes storage is full.':'Could not save to your account. Notes are kept on this device.')});
+  });
+}
+function onNoteInput(ta){
+  var k=ta.dataset.note;
+  notes[k]=ta.value;pending[k]=1;persistLocal();autosize(ta);
+  var d=ta.closest('details');if(d)d.classList.toggle('has',!!ta.value.trim());
+  if(store){setStatus('Saving…');clearTimeout(timers[k]);timers[k]=setTimeout(function(){pushRemote(k)},700)}
+}
+document.addEventListener('input',function(e){if(e.target.matches&&e.target.matches('textarea[data-note]'))onNoteInput(e.target)});
+document.addEventListener('toggle',function(e){var ta=e.target.querySelector&&e.target.querySelector('textarea[data-note]');if(ta)autosize(ta)},true);
+function refreshNotes(){
+  var ae=document.activeElement,typing=!!(ae&&ae.matches&&ae.matches('textarea[data-note]'));
+  document.querySelectorAll('textarea[data-note]').forEach(function(ta){
+    if(ta===ae)return;
+    var v=notes[ta.dataset.note]||'';if(ta.value!==v){ta.value=v;autosize(ta)}
+  });
+  document.querySelectorAll('details.notes').forEach(function(d){d.classList.toggle('has',!!(notes[d.dataset.k]||'').trim())});
+  if(typing)return;
+  if(!res.hidden)runSearch();else if(current==='notes')show('notes');
+}
+function onRemote(remote){
+  remote=remote||{};
+  var first=!synced;synced=true;
+  var merged={},push=[];
+  Object.keys(remote).forEach(function(k){merged[k]=remote[k]});
+  if(first){
+    Object.keys(notes).forEach(function(k){if((notes[k]||'').trim()&&!(k in remote)){merged[k]=notes[k];push.push(k)}});
+    Object.keys(pending).forEach(function(k){push.push(k)});
+  }
+  Object.keys(pending).forEach(function(k){merged[k]=notes[k]});
+  notes=merged;persistLocal();refreshNotes();
+  push.forEach(pushRemote);
+}
+function renderNotesView(){
+  var h='<div class="notesview"><div class="nv-bar"><button class="act" id="exp-file" type="button">Save as file</button><button class="act" id="exp-copy" type="button">Copy all</button></div><div id="exp-out" aria-live="polite"></div>';
+  var any=false;
+  Object.keys(DAYS).forEach(function(day){
+    h+='<h2 class="nv-day">'+DAYN[day]+'</h2><div class="daynote">'+noteBox('day-'+day,'Notes for the day')+'</div>';
+    DAYS[day].forEach(function(b){b.options.forEach(function(x){
+      if(!(notes[x.id]||'').trim())return;
+      any=true;
+      h+='<div class="card"><div class="when">'+b.time+'–'+b.end+'</div><h3>'+titleHtml(x)+'</h3>'+metaHtml(x)+noteBox(x.id)+'</div>';
+    })});
+  });
+  if(!any)h+='<p class="empty">Notes you add to a session card show up here, in schedule order.</p>';
+  return h+'</div>';
+}
+function exportText(){
+  var out=['# ATCE 2026 notes',''],n=0;
+  Object.keys(DAYS).forEach(function(day){
+    var part=[];
+    var dn=(notes['day-'+day]||'').trim();if(dn)part.push(dn,'');
+    DAYS[day].forEach(function(b){b.options.forEach(function(x){
+      var v=(notes[x.id]||'').trim();if(!v)return;
+      part.push('### '+b.time+'–'+b.end+' · '+(x.code?x.code+' ':'')+x.title,'_'+x.room+'_','',v,'');
+    })});
+    if(part.length){n++;out.push('## '+DAYN[day],'');out=out.concat(part)}
+  });
+  return n?out.join('\n'):'';
+}
+function showManual(text,msg){
+  var o=document.getElementById('exp-out');if(!o)return;
+  o.innerHTML=esc(msg)+'<textarea readonly aria-label="All notes">'+esc(text)+'</textarea>';
+  var ta=o.querySelector('textarea');ta.focus();ta.select();
+}
+function say(msg){var o=document.getElementById('exp-out');if(o)o.textContent=msg}
+document.addEventListener('click',function(e){
+  var f=e.target.closest&&e.target.closest('#exp-file'),c=e.target.closest&&e.target.closest('#exp-copy');
+  if(!f&&!c)return;
+  var text=exportText();
+  if(!text){say('No notes to export yet.');return}
+  if(c){
+    var p=(navigator.clipboard&&navigator.clipboard.writeText)?navigator.clipboard.writeText(text):Promise.reject();
+    p.then(function(){say('Copied all notes.')},function(){showManual(text,'Copy is blocked here. The text is selected below, press Ctrl/Cmd+C.')});
+    return;
+  }
+  use('downloads').then(function(dl){
+    if(!dl){showManual(text,'Saving files is not available here. Copy the text below.');return}
+    dl.save({filename:'atce-2026-notes.md',data:text}).then(function(){say('Saved atce-2026-notes.md')},function(err){
+      if(err&&err.code==='declined')return;
+      showManual(text,'Could not save a file. Copy the text below.');
+    });
+  });
+});
+// private store: data/users/<id>/notes holds { items: { sessionId: text } }
+use('user').then(function(user){
+  return use('db').then(function(db){
+    if(!db||!user){setStatus('Notes are saved on this device only.');return}
+    return user.id().then(function(id){
+      if(!id){setStatus('Notes are saved on this device only.');return}
+      store=db.doc('data/users/'+id+'/notes');
+      store.onSnapshot(function(snap){var d=snap.data();docExists=snap.exists;onRemote(d&&d.items)},
+        function(){store=null;setStatus('Notes are saved on this device only.')});
+    });
+  });
+}).catch(function(){setStatus('Notes are saved on this device only.')});
+
 var h=(location.hash||'').replace('#','');
-show(DAYS[h]?h:'wed');
+show((DAYS[h]||h==='notes')?h:'wed');
 })();
 </script>
