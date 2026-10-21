@@ -89,6 +89,9 @@ details.notes textarea:focus-visible{outline:2px solid var(--pick);outline-offse
 .daynote{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:2px 16px 12px}
 .daynote details.notes{margin:0;border:0;padding-top:10px}
 .notesview{display:grid;gap:14px}
+.sel-next{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.unpick{float:right;font:500 12px var(--font-mono);padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.unpick:hover{border-color:var(--fixed);color:var(--fixed)}
 .nv-bar{display:flex;gap:8px;flex-wrap:wrap}
 .act{font:500 13px var(--font-mono);padding:8px 14px;border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer}
 .nv-day{font-size:28px;font-weight:600;margin-top:10px}
@@ -113,7 +116,7 @@ details.notes textarea:focus-visible{outline:2px solid var(--pick);outline-offse
 <main>
   <header>
     <h1>ATCE 2026 Planner</h1>
-    <p class="sub">Oct 21–23, George R. Brown Convention Center, Houston. One pick per overlapping slot, with the alternatives listed under it. Tap "Pick this" to swap.</p>
+    <p class="sub">Oct 21–23, George R. Brown Convention Center, Houston. Each overlapping slot starts with one recommended pick and the alternatives listed under it. Add as many as you want and remove any you don’t.</p>
   </header>
 
   <div class="search" role="search">
@@ -127,7 +130,7 @@ details.notes textarea:focus-visible{outline:2px solid var(--pick);outline-offse
     <summary>How the session types work</summary>
     <dl>
       <dt>Technical sessions</dt>
-      <dd>Numbered 01, 02… in the program. Each is a 3-hour block in one room with a run of papers back to back, typically about 25 minutes each. Coming and going between papers is normal. Check the paper times on the session page or in the SPE app. They were not in the program text I had.</dd>
+      <dd>Numbered 01, 02… in the program. Each is a 3-hour block in one room with a run of papers back to back, about 25 minutes each (session 05 has papers at 14:00 and 14:25). You can walk in or out between papers. Paper times are on each session’s page on atce.org and in the SPE app. I only have them for session 05.</dd>
       <dt>Special sessions (SS)</dt>
       <dd>One hour, panel format. Stay for the whole hour.</dd>
       <dt>Strategic panels (SP)</dt>
@@ -174,11 +177,12 @@ wed:[
     note:'The at-a-glance page says it ends 13:30.',
     spk:['Scott Tinker, Bureau of Economic Geology']})]},
  {id:'w-pm',time:'14:00',end:'15:15',kind:'choice',label:'Choose one',
-  note:'The 3-hour sessions run to 17:00, but your panel is at 15:45. Sessions are come and go, so start in whichever room has the paper you want.',
+  note:'Add as many as you like. The 3-hour sessions run in papers of about 25 minutes, so you can start in one room and move to another between papers. Your panel is at 15:45.',
   rec:'w-pm-05',
   options:[
    o('w-pm-05','05','Rig Efficiency / Performance Optimization','Room 370 CF',[D,A],{why:'Closest to your day job: automation and real-time analytics on drilling performance.',
-     chair:['Rishma Tidwell, Independent','Paul Pastusek, Pastusek and Associates','Aman Srivastava, Halliburton Landmark']}),
+     chair:['Rishma Tidwell, Independent','Paul Pastusek, Pastusek and Associates','Aman Srivastava, Halliburton Landmark'],
+     papers:[['14:00–14:25','Modular digital twin for drilling rigs (invited, Best of DC)','R. Whitney, Precision Drilling'],['14:25–14:50','Computer Vision Equipped Shale Shakers Reduce Lost Time In Offshore Guyana','C.G. Childress, J. Eze (ExxonMobil); C. Holt, L. Holt (DrillDocs)']]}),
    o('w-pm-08','08','Advances in Automation, Bit Technologies, and Well Placement','Room 371 CF',[D,A],{
      chair:['Marc Willerth, Helmerich & Payne','David Forrest, Precision Drilling','Guillaume Plessis, NOV Grant Prideco']}),
    o('w-pm-04','04','Modern Fracturing Engineering: From Innovative Techniques to Data-Driven Diagnostics','Room 362 CF',[C,A],{
@@ -280,12 +284,21 @@ fri:[
  {id:'f-pm',time:'14:00',end:'16:30',kind:'choice',label:'Last technical block',
   note:'Unconfirmed list.',
   rec:null,
-  options:[o('f-pm-tech','','Technical sessions 14:00–16:30','Level 3',[O],{unc:1})]}
+  options:[
+   o('f-pm-43','43','Data-Driven Drilling: From Rig Automation to Rock Properties','Room 370 CF',[D,A],{unc:1,note:'Its 14:00–16:30 slot matches this block, but I did not see the day.'}),
+   o('f-pm-tech','','Technical sessions 14:00–16:30','Level 3',[O],{unc:1})]}
 ]};
 
 var picks={};
 try{picks=JSON.parse(localStorage.getItem('atce26-picks')||'{}')||{}}catch(e){picks={}}
 function save(){try{localStorage.setItem('atce26-picks',JSON.stringify(picks))}catch(e){}}
+// a slot's picks: a list of option ids (older saves held a single id)
+function sel(b){
+  var v=picks[b.id];
+  if(Array.isArray(v))return v;
+  if(typeof v==='string')return [v];
+  return b.rec?[b.rec]:[];
+}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
 var terms=[];
@@ -304,6 +317,7 @@ function peopleHtml(x){
   if(x.mod)h+='<dt>'+(x.mod.length>1?'Moderators':'Moderator')+'</dt><dd>'+plist(x.mod)+'</dd>';
   if(x.spk)h+='<dt>'+(x.mod?'Panelists':'Speakers')+'</dt><dd>'+plist(x.spk)+'</dd>';
   if(x.chair)h+='<dt>Chairs</dt><dd>'+plist(x.chair)+'</dd>';
+  if(x.papers)h+='<dt>Papers</dt><dd>'+x.papers.map(function(p){return '<span class="org">'+hl(p[0])+'</span> '+hl(p[1])+' <span class="org">'+hl(p[2])+'</span>'}).join('<br>')+'<br><span class="org">Later papers are not listed here yet. Check the session page.</span></dd>';
   return h?'<dl class="people">'+h+'</dl>':'';
 }
 function titleHtml(x){return (x.code?'<span class="code">'+hl(x.code)+'</span>':'')+hl(x.title)}
@@ -311,27 +325,29 @@ function metaHtml(x){return '<p class="meta">'+hl(x.room)+(x.unc?' · unconfirme
 function noteHtml(x){return x.note?'<p class="note">'+hl(x.note)+'</p>':''}
 
 function renderBlock(b){
-  var cur=picks[b.id]||b.rec;
-  var main=b.options.filter(function(x){return x.id===cur})[0];
-  if(!main&&b.kind!=='choice')main=b.options[0];
-  var alts=b.options.filter(function(x){return x!==main});
+  var chosen=b.kind==='choice'?sel(b):[b.options[0].id];
+  var mains=b.options.filter(function(x){return chosen.indexOf(x.id)>-1});
+  var alts=b.options.filter(function(x){return chosen.indexOf(x.id)<0});
   var h='<div class="block" id="b-'+b.id+'"><div class="time">'+b.time+'<small>to '+b.end+'</small></div><div class="card '+b.kind+'">';
-  if(main){
-    var badge=b.kind==='fixed'?'<span class="badge b-fixed">'+esc(b.label)+'</span>':
-      b.kind==='choice'?'<span class="badge b-pick">Your pick</span>':'<span class="badge b-open">'+esc(b.label)+'</span>';
-    h+=badge+'<h3>'+titleHtml(main)+'</h3>'+metaHtml(main)+noteHtml(main);
-    if(main.why&&cur===b.rec)h+='<p class="why">'+hl(main.why)+'</p>';
-    h+=peopleHtml(main)+'<div class="tags">'+tagsHtml(main.tags)+'</div>'+(b.kind!=='info'?noteBox(main.id):'');
+  if(mains.length){
+    mains.forEach(function(m,i){
+      var badge=b.kind==='fixed'?'<span class="badge b-fixed">'+esc(b.label)+'</span>':
+        b.kind==='choice'?'<span class="badge b-pick">Your pick</span>':'<span class="badge b-open">'+esc(b.label)+'</span>';
+      h+='<div class="sel'+(i?' sel-next':'')+'">'+(b.kind==='choice'?'<button class="unpick" data-block="'+b.id+'" data-opt="'+m.id+'">Remove</button>':'')+
+        badge+'<h3>'+titleHtml(m)+'</h3>'+metaHtml(m)+noteHtml(m);
+      if(m.why&&m.id===b.rec)h+='<p class="why">'+hl(m.why)+'</p>';
+      h+=peopleHtml(m)+'<div class="tags">'+tagsHtml(m.tags)+'</div>'+(b.kind!=='info'?noteBox(m.id):'')+'</div>';
+    });
   }else{
     h+='<span class="badge b-open">'+esc(b.label)+'</span>';
   }
   if(b.note&&b.kind==='choice')h+='<p class="note">'+esc(b.note)+'</p>';
   if(b.also)h+='<p class="note">'+esc(b.also)+'</p>';
   if(alts.length&&b.kind==='choice'){
-    h+='<div class="alts"><div class="lab">'+(main?'Other options':'Options')+' ('+alts.length+')</div>';
+    h+='<div class="alts"><div class="lab">'+(mains.length?'Other options':'Options')+' ('+alts.length+')</div>';
     alts.forEach(function(x){
       var ppl=[].concat(x.mod||[],x.spk||[],x.chair||[]);
-      h+='<div class="alt"><div class="ti">'+titleHtml(x)+'</div><button class="swap" data-block="'+b.id+'" data-opt="'+x.id+'">Pick this</button>'+
+      h+='<div class="alt"><div class="ti">'+titleHtml(x)+'</div><button class="swap" data-block="'+b.id+'" data-opt="'+x.id+'">Add to picks</button>'+
         '<div class="sm">'+hl(x.room)+(x.unc?' · unconfirmed':'')+(x.why_alt?' · '+esc(x.why_alt):'')+
         (ppl.length?'<br>'+plist(ppl):'')+'<div class="tags">'+tagsHtml(x.tags)+'</div></div></div>';
     });
@@ -355,8 +371,17 @@ tabs.forEach(function(t){t.addEventListener('click',function(){
   try{history.replaceState(null,'','#'+t.dataset.day)}catch(e){}
   show(t.dataset.day)})});
 root.addEventListener('click',function(e){
-  var b=e.target.closest('.swap');if(!b)return;
-  picks[b.dataset.block]=b.dataset.opt;save();
+  var a=e.target.closest('.swap'),r=e.target.closest('.unpick');
+  if(!a&&!r)return;
+  var el=a||r,b=null;
+  Object.keys(DAYS).forEach(function(d){DAYS[d].forEach(function(x){if(x.id===el.dataset.block)b=x})});
+  if(!b)return;
+  var cur=sel(b).slice(),i=cur.indexOf(el.dataset.opt);
+  if(a&&i<0)cur.push(el.dataset.opt);
+  if(r&&i>-1)cur.splice(i,1);
+  var order=b.options.map(function(x){return x.id});
+  cur.sort(function(m,n){return order.indexOf(m)-order.indexOf(n)});
+  picks[b.id]=cur;save();
   var y=window.scrollY;show(current);window.scrollTo(0,y);
 });
 
@@ -365,7 +390,7 @@ var q=document.getElementById('q'),clr=document.getElementById('clear');
 var browse=document.getElementById('browse'),res=document.getElementById('results');
 function hay(day,b,x){
   return [DAYN[day],b.time,x.code,x.title,x.room,x.note||'',b.label,(x.tags||[]).map(function(k){return TAGN[k]}).join(' '),
-    [].concat(x.mod||[],x.spk||[],x.chair||[]).join(' '),notes[x.id]||''].join(' ').toLowerCase();
+    [].concat(x.mod||[],x.spk||[],x.chair||[]).join(' '),(x.papers||[]).map(function(p){return p.join(' ')}).join(' '),notes[x.id]||''].join(' ').toLowerCase();
 }
 function runSearch(){
   var raw=q.value.trim();
@@ -380,8 +405,7 @@ function runSearch(){
   browse.style.display='none';res.hidden=false;
   if(!hits.length){res.innerHTML='<p class="empty">No matches for “'+esc(raw)+'”. Try a last name, a company, or a topic like “automation”.</p>';return}
   res.innerHTML='<div class="res-head">'+hits.length+' match'+(hits.length>1?'es':'')+'</div>'+hits.map(function(r){
-    var cur=picks[r.b.id]||r.b.rec;
-    var tagPick=cur===r.x.id&&r.b.kind==='choice'?'<span class="badge b-pick" style="margin:0">Your pick</span>':'';
+    var tagPick=r.b.kind==='choice'&&sel(r.b).indexOf(r.x.id)>-1?'<span class="badge b-pick" style="margin:0">Your pick</span>':'';
     return '<div class="card res"><div class="when"><span>'+DAYN[r.day]+' · '+r.b.time+'–'+r.b.end+'</span>'+tagPick+'</div>'+
       '<h3>'+titleHtml(r.x)+'</h3>'+metaHtml(r.x)+noteHtml(r.x)+peopleHtml(r.x)+myNote(r.x)+'<div class="tags">'+tagsHtml(r.x.tags)+'</div>'+
       '<button class="go" data-day="'+r.day+'" data-block="'+r.b.id+'">Show in schedule</button></div>';
