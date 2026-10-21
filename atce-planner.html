@@ -219,8 +219,10 @@ thu:[
      mod:['Skip York, Baker Institute'],spk:['Michelle Foss, L’Acadie Network','Bob McNally, Rapidan Energy','Rob Schwiers, Chevron','Michael Cohen, BP']}),
    o('t-mid-ss06','SS06','Who Is Preparing the Energy Workforce for What Comes Next? (10:30–11:30)','Special Session Room 2',[O],{
      mod:['Massiel Diez, Flipping the Barrel','Jamie Elrod, Flipping the Barrel'],spk:['Asiya Abbasi, Halliburton','Brian Cook, NextGen Trades','Rita Okoroafor, Texas A&M','Zach Wilbur, Blue Spark Energy']})]},
- {id:'t-lunch',time:'11:30',end:'14:00',kind:'info',label:'Open',
+ {id:'t-lunch',time:'11:30',end:'12:30',kind:'info',label:'Open',
   options:[o('t-lunch-1','','Exhibit floor, SPE Pavilion Talks (10:00–16:30, Booth 1023), Startup Village (to 12:00, Room 381)','Hall B, Hall C',[O],{note:'Astronaut Meet & Greet 12:00–14:00 in Hall C.'})]},
+ {id:'t-meet',time:'12:30',end:'',kind:'fixed',label:'Meeting',
+  options:[o('t-meet-1','','Meeting with Hemant Madaan','Exhibit floor',[O])]},
  {id:'t-pm1',time:'14:00',end:'15:15',kind:'choice',label:'Choose one',tech:['14:00','15:15'],
   rec:['t-pm1-ss08'],
   options:[
@@ -305,6 +307,7 @@ function sel(b){
 }
 function recs(b){return !b.rec?[]:Array.isArray(b.rec)?b.rec:[b.rec]}
 function nkey(x){return x.nk||x.id}
+function rng(b){return b.end?b.time+'–'+b.end:b.time}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
 var terms=[];
@@ -339,7 +342,7 @@ function renderBlock(b){
   var chosen=b.kind==='choice'?sel(b):[b.options[0].id];
   var mains=b.options.filter(function(x){return chosen.indexOf(x.id)>-1});
   var alts=b.options.filter(function(x){return chosen.indexOf(x.id)<0});
-  var h='<div class="block" id="b-'+b.id+'"><div class="time">'+b.time+'<small>to '+b.end+'</small></div><div class="card '+b.kind+'">';
+  var h='<div class="block" id="b-'+b.id+'"><div class="time">'+b.time+(b.end?'<small>to '+b.end+'</small>':'')+'</div><div class="card '+b.kind+'">';
   if(mains.length){
     mains.forEach(function(m,i){
       var badge=b.kind==='fixed'?'<span class="badge b-fixed">'+esc(b.label)+'</span>':
@@ -417,7 +420,7 @@ function runSearch(){
   if(!hits.length){res.innerHTML='<p class="empty">No matches for “'+esc(raw)+'”. Try a last name, a company, or a topic like “automation”.</p>';return}
   res.innerHTML='<div class="res-head">'+hits.length+' match'+(hits.length>1?'es':'')+'</div>'+hits.map(function(r){
     var tagPick=r.b.kind==='choice'&&sel(r.b).indexOf(r.x.id)>-1?'<span class="badge b-pick" style="margin:0">Your pick</span>':'';
-    return '<div class="card res"><div class="when"><span>'+DAYN[r.day]+' · '+r.b.time+'–'+r.b.end+'</span>'+tagPick+'</div>'+
+    return '<div class="card res"><div class="when"><span>'+DAYN[r.day]+' · '+rng(r.b)+'</span>'+tagPick+'</div>'+
       '<h3>'+titleHtml(r.x)+'</h3>'+metaHtml(r.x)+noteHtml(r.x)+peopleHtml(r.x)+papersHtml(r.x,true)+myNote(r.x)+'<div class="tags">'+tagsHtml(r.x.tags)+'</div>'+
       '<button class="go" data-day="'+r.day+'" data-block="'+r.b.id+'">Show in schedule</button></div>';
   }).join('');
@@ -500,7 +503,7 @@ function renderNotesView(){
       var nk=nkey(x);
       if(!(notes[nk]||'').trim()||seen[nk])return;
       seen[nk]=1;any=true;
-      h+='<div class="card"><div class="when">'+b.time+'–'+b.end+'</div><h3>'+titleHtml(x)+'</h3>'+metaHtml(x)+noteBox(nk)+'</div>';
+      h+='<div class="card"><div class="when">'+rng(b)+'</div><h3>'+titleHtml(x)+'</h3>'+metaHtml(x)+noteBox(nk)+'</div>';
     })});
   });
   if(!any)h+='<p class="empty">Notes you add to a session card show up here, in schedule order.</p>';
@@ -514,7 +517,7 @@ function exportText(){
     DAYS[day].forEach(function(b){b.options.forEach(function(x){
       var nk=nkey(x),v=(notes[nk]||'').trim();if(!v||seen[nk])return;
       seen[nk]=1;
-      part.push('### '+b.time+'–'+b.end+' · '+(x.code?x.code+' ':'')+x.title,'_'+x.room+'_','',v,'');
+      part.push('### '+rng(b)+' · '+(x.code?x.code+' ':'')+x.title,'_'+x.room+'_','',v,'');
     })});
     if(part.length){n++;out.push('## '+DAYN[day],'');out=out.concat(part)}
   });
