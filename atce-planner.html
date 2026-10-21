@@ -1,0 +1,268 @@
+<title>ATCE 2026 Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a day timeline. Time rail on the left, one card per time block; the chosen session leads, alternates stay listed underneath. */
+:root{
+  --bg:#edf0f3; --surface:#ffffff; --ink:#15212d; --muted:#5a6876; --line:#d3dae1;
+  --pick:#0d6e63; --pick-soft:#dcf0ec; --fixed:#b45309; --fixed-soft:#fbead2; --info-soft:#e4e9ee;
+  --d:#1d4ed8; --c:#7c3aed; --ai:#0d6e63; --o:#5a6876;
+  --font-display:'Barlow Condensed','Arial Narrow',sans-serif;
+  --font-body:'IBM Plex Sans',system-ui,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1720; --surface:#17222d; --ink:#e7edf2; --muted:#93a3b2; --line:#2a3846;
+  --pick:#4fd1bf; --pick-soft:#12332f; --fixed:#f5b361; --fixed-soft:#3a2a12; --info-soft:#1f2c38;
+  --d:#7aa2ff; --c:#b69cff; --ai:#4fd1bf; --o:#93a3b2; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1720; --surface:#17222d; --ink:#e7edf2; --muted:#93a3b2; --line:#2a3846;
+  --pick:#4fd1bf; --pick-soft:#12332f; --fixed:#f5b361; --fixed-soft:#3a2a12; --info-soft:#1f2c38;
+  --d:#7aa2ff; --c:#b69cff; --ai:#4fd1bf; --o:#93a3b2; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--font-body);
+  padding-block:24px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;line-height:1.1}
+h1{font-size:40px;font-weight:700;letter-spacing:.01em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:62ch}
+.how{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px;display:grid;gap:12px}
+.how h2{font-size:22px;font-weight:600}
+.how dl{margin:0;display:grid;grid-template-columns:max-content 1fr;gap:8px 16px}
+.how dt{font-family:var(--font-mono);font-size:12.5px;color:var(--muted);padding-top:3px;text-transform:uppercase;letter-spacing:.06em}
+.how dd{margin:0;max-width:62ch}
+nav[role=tablist]{display:flex;gap:6px;flex-wrap:wrap}
+nav button{font:600 20px var(--font-display);letter-spacing:.02em;padding:8px 18px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+nav button[aria-selected=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--pick);outline-offset:2px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.tag{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:1px 6px;border-radius:4px;border:1px solid currentColor;white-space:nowrap}
+.t-d{color:var(--d)}.t-c{color:var(--c)}.t-ai{color:var(--ai)}.t-o{color:var(--o)}
+.block{display:grid;grid-template-columns:92px 1fr;gap:14px}
+.time{font-family:var(--font-display);font-size:22px;font-weight:600;line-height:1.1;padding-top:12px}
+.time small{display:block;font:400 12px var(--font-mono);color:var(--muted);margin-top:2px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.card.fixed{border-color:var(--fixed)}
+.card.info{background:var(--info-soft);border-style:dashed}
+.badge{display:inline-block;font:600 12px var(--font-mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:4px;margin-bottom:8px}
+.b-pick{background:var(--pick-soft);color:var(--pick)}
+.b-fixed{background:var(--fixed-soft);color:var(--fixed)}
+.b-open{background:var(--info-soft);color:var(--muted)}
+.card h3{font-size:24px;font-weight:600}
+.meta{font:400 13px var(--font-mono);color:var(--muted);margin:4px 0 0}
+.note{margin:8px 0 0;max-width:64ch}
+.why{margin:8px 0 0;color:var(--pick);max-width:64ch}
+.alts{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;display:grid;gap:2px}
+.alts>.lab{font:500 12px var(--font-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.alt{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:8px 0;border-bottom:1px solid var(--line)}
+.alt:last-child{border-bottom:0}
+.alt .ti{font-weight:500}
+.alt .sm{font-size:13px;color:var(--muted);grid-column:1}
+.alt .tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+.swap{grid-column:2;grid-row:1 / span 2;align-self:center;font:500 12px var(--font-mono);padding:5px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.swap:hover{border-color:var(--pick);color:var(--pick)}
+.tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.foot{color:var(--muted);font-size:13px;max-width:70ch}
+@media (max-width:560px){
+  h1{font-size:34px}
+  .block{grid-template-columns:1fr;gap:6px}
+  .time{padding-top:0;display:flex;gap:10px;align-items:baseline}
+  .time small{margin:0}
+  .how dl{grid-template-columns:1fr;gap:2px}
+  .how dt{padding-top:8px}
+}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
+</style>
+
+<main>
+  <header>
+    <h1>ATCE 2026 Planner</h1>
+    <p class="sub">Oct 21–23, George R. Brown Convention Center, Houston. Built around your Agentic Alliance panel and an interest in drilling, completions, AI, data science, automation and engineering models. Where sessions overlap, one is picked and the rest stay listed. Tap "Pick this" to swap.</p>
+  </header>
+
+  <section class="how" aria-labelledby="how-h">
+    <h2 id="how-h">How the session types work</h2>
+    <dl>
+      <dt>Technical sessions</dt>
+      <dd>Numbered 01, 02… in the program. Each is a 3-hour block in one room with a run of papers back to back, typically about 25 minutes each (session pages show slots like 08:30–08:55). Coming and going between papers is normal. Check the paper times on the session page or the SPE app and walk in for the talk you want. Paper-level times were not in the program text, so I could not list them here.</dd>
+      <dt>Running at once</dt>
+      <dd>Ten technical sessions run in parallel in the Wednesday 14:00 block, so most choices are about which room to start in. Rooms 370 CF and 370 ADBE sit in the same numbered area, which likely makes hopping between them easy.</dd>
+      <dt>Special sessions (SS)</dt>
+      <dd>One hour, panel format with moderator and discussion. Stay for the whole hour. They run in pairs, SS rooms 1 and 2.</dd>
+      <dt>Strategic panels (SP)</dt>
+      <dd>One hour, all in Room 372 BCEF, usually with senior leaders. Yours is one of these.</dd>
+      <dt>ePosters</dt>
+      <dd>Short 30-minute poster slots at the breaks, at ePoster stations in Hall B.</dd>
+    </dl>
+  </section>
+
+  <nav role="tablist" aria-label="Day">
+    <button role="tab" id="tab-wed" data-day="wed">Wed 21</button>
+    <button role="tab" id="tab-thu" data-day="thu">Thu 22</button>
+    <button role="tab" id="tab-fri" data-day="fri">Fri 23</button>
+  </nav>
+  <div class="legend" aria-label="Topic tags">
+    <span><span class="tag t-d">Drilling</span></span>
+    <span><span class="tag t-c">Completions</span></span>
+    <span><span class="tag t-ai">AI / data</span></span>
+    <span><span class="tag t-o">Other</span></span>
+  </div>
+
+  <section id="day" aria-live="polite"></section>
+
+  <p class="foot">Source: the ATCE 2026 technical program, special sessions, strategic panels and schedule-at-a-glance pages as pasted on Oct 21. Rooms and times can change, so confirm in the SPE app. Thursday and Friday technical session lists were not included, so those blocks are marked and any candidates listed are unconfirmed.</p>
+</main>
+
+<script>
+(function(){
+var D='d',C='c',A='ai',O='o';
+var TAGN={d:'Drilling',c:'Completions',ai:'AI / data',o:'Other'};
+function o(id,title,room,note,tags,extra){var x={id:id,title:title,room:room,note:note||'',tags:tags||[]};if(extra)for(var k in extra)x[k]=extra[k];return x}
+
+var DAYS={
+wed:[
+ {id:'w-open',time:'10:00',end:'11:30',kind:'fixed',label:'Fixed',
+  options:[o('w-open-1','Opening General Session: Exploring New Horizons with Innovative Solutions','Grand Ballroom AB','Moderated by SPE President Jennifer Miskimins with Ahmed Alebri (ADNOC Onshore), Peter Larden (ExxonMobil), Lorenzo Simonelli (Baker Hughes) and Ezra Yacob (EOG). AI features in the discussion.',[O])]},
+ {id:'w-lunch',time:'12:00',end:'13:45',kind:'fixed',label:'Your ticket',
+  options:[o('w-lunch-1','Wednesday Keynote Luncheon: Global Energy and the Role of Molecules','Grand Ballroom C','Scott Tinker, Director Emeritus, Bureau of Economic Geology. The program says 13:45 and the at-a-glance page says 13:30, so plan to leave about 13:30.',[O])]},
+ {id:'w-pm',time:'14:00',end:'15:15',kind:'choice',label:'Choose one, until you leave for your panel',
+  note:'The 3-hour sessions run to 17:00, but your panel is at 15:45, so you get roughly the first 75 minutes. Because sessions are come and go, check paper times in the SPE app and start in the room with your preferred talk.',
+  rec:'w-pm-05',
+  options:[
+   o('w-pm-05','05 Rig Efficiency / Performance Optimization','Room 370 CF','Drilling performance through automation and real-time data analytics.',[D,A],{why:'Closest to your day job: automation and real-time analytics on drilling performance.'}),
+   o('w-pm-08','08 Advances in Automation, Bit Technologies, and Well Placement','Room 371 CF','Automated drilling, intelligent steering and surveying, data-driven bit design.',[D,A]),
+   o('w-pm-04','04 Modern Fracturing Engineering: Innovative Techniques to Data-Driven Diagnostics','Room 362 CF','Sandless completions, proppant selection, diagnostics.',[C,A]),
+   o('w-pm-10','10 AI-Driven Reservoir Modeling & Optimization','Room 370 ADBE','Physics-informed ML, property prediction. Chairs from ResFrac and Basra Oil.',[A]),
+   o('w-pm-ss02','SS02 Advancing Inflow Control and Well Monitoring (14:00–15:00)','Special Session Room 2','Panel on ICD/AICD/ICV completions with Halliburton, Aramco, ExxonMobil. Includes real-time analytics and ML for surveillance.',[C,A]),
+   o('w-pm-ss01','SS01 Act or Wait? Interpreting Measurement Evidence (14:00–15:00)','Special Session Room 1','Case-based decisions from an ambiguous production measurement.',[A,O]),
+   o('w-pm-03','03 Digital HSE Transformation: AI-Driven Safety and Risk Reduction','Room 362 ADBE','Real-time monitoring, compliance, human factors.',[A,O]),
+   o('w-pm-02','02 Stimulation and Chemical Treatment','Room 361 BECF','Water-shutoff and nanoparticle treatments.',[C]),
+   o('w-pm-01','01 Rock, Fluid and Compositional Interactions','Room 361 AD','Development options from rock-fluid interactions.',[O]),
+   o('w-pm-07','07 Enhancing Asset Value: Operations, Sustainability, Strategic Adaptation','Room 371 BE','',[O]),
+   o('w-pm-09','09 Advances in EOR 1: Laboratory, Modeling and Field Development','Room 372 AD','Chemical EOR and CO₂ injection.',[O]),
+   o('w-pm-06','06 CO₂ Storage Engineering','Room 371 AD','',[O])]},
+ {id:'w-brk',time:'15:15',end:'15:45',kind:'info',label:'Break',
+  options:[o('w-brk-1','Afternoon break and ePosters. Head to Room 372 BCEF.','Exhibit Halls B & C','Aim to be in the room by about 15:30 to meet Josh Etkind and the other panelists. Speaker check-in is Room 360DE, open until 17:30.',[O])]},
+ {id:'w-panel',time:'15:45',end:'16:45',kind:'fixed',label:'You are speaking',
+  options:[o('w-panel-1','SP01 The Agentic Alliance: How O&G Data, Enterprise Software, and Frontier AI Labs are Delivering Trusted Results at Scale','Room 372 BCEF','Moderator Josh Etkind (Archway Energy). Panelists: Matan Agam (OpenAI), Beau Bromley (Devon), Chris Coley (AWS ProServe), Sid Misra (Texas A&M), Charles Yorek (Anthropic).',[A])],
+  also:'Running opposite, which you will miss: SS03 Operationalizing Autonomy (robotics), SS04 After Production, and the tail of the 14:00 technical sessions.'},
+ {id:'w-eve',time:'16:45',end:'20:00',kind:'info',label:'Evening',
+  options:[o('w-eve-1','Welcome Reception 16:30–18:00; Technical Section receptions 18:30–20:00','Halls B & C; Level 3','Good places to meet drilling automation and data science people. Alumni receptions are at the Hilton Americas and off-site.',[O])]}
+],
+thu:[
+ {id:'t-am',time:'08:30',end:'10:30',kind:'choice',label:'Morning, no confirmed pick yet',
+  note:'The Thursday technical session list was not in the pasted text. These drilling, completions and AI sessions appeared in search results with a 08:30–11:30 slot, but their day (Thu or Fri) is unconfirmed. Send me the Thursday tab and I will rank them.',
+  rec:null,
+  options:[
+   o('t-am-c1','AI-Driven Drilling: Providing Insights and Unlocking Performance','Room 322','Autonomous deepwater drilling parameters, hybrid AI-physics lost-circulation diagnosis. Day unconfirmed.',[D,A],{unc:1}),
+   o('t-am-c2','Integrated Drilling Performance Optimization','Room 371','Physics-based design with real-time intelligence. Day unconfirmed.',[D,A],{unc:1}),
+   o('t-am-c3','Maximizing Ultimate Recovery: AI/ML in Unconventional Fracturing and Well Diagnostics','Room 361 BECF','Day unconfirmed.',[C,A],{unc:1}),
+   o('t-am-c4','Intelligent Wells, Informed Decisions','Room 361','Physics-informed and data-driven across the well lifecycle. Day unconfirmed.',[C,A],{unc:1}),
+   o('t-am-sp2','SP02 Unleashing Data Centers: How Surging Demand Is Being Met (08:45–09:45)','Room 372 BCEF','Panel with Fervo, Wood Mackenzie, Arrowhead Economics, Amazon.',[O])]},
+ {id:'t-mid',time:'10:30',end:'11:30',kind:'choice',label:'Choose one',
+  rec:'t-mid-ss05',
+  options:[
+   o('t-mid-ss05','SS05 Unlocking ROI of AI in Energy','Special Session Room 1','Metrics, executive-engineering collaboration, moving from pilots to repeatable deployments. Panel from ExxonMobil, Oxy, Quorum, StrandBlue.',[A],{why:'Directly on your AI work and a natural follow-on to your panel.'}),
+   o('t-mid-sp3','SP03 Energy Realism: Economics, Policy, and the Transition Ahead','Room 372 BCEF','Chief economists from Chevron, BP and others.',[O]),
+   o('t-mid-ss06','SS06 Who Is Preparing the Energy Workforce for What Comes Next?','Special Session Room 2','Training and knowledge capture.',[O]),
+   o('t-mid-tech','Technical session continuing from the morning block','Level 3','Unconfirmed list.',[O],{unc:1})]},
+ {id:'t-lunch',time:'11:30',end:'14:00',kind:'info',label:'Open',
+  options:[o('t-lunch-1','Exhibit floor, SPE Pavilion Talks (10:00–16:30, Booth 1023), Startup Village (to 12:00, Room 381)','Hall B, Hall C','Astronaut Meet & Greet 12:00–14:00 in Hall C. Lunch on your own.',[O])]},
+ {id:'t-pm1',time:'14:00',end:'15:00',kind:'choice',label:'Three panels collide',
+  rec:'t-pm1-ss08',
+  options:[
+   o('t-pm1-ss08','SS08 AI and Automation in the New Era of Geothermal Drilling','Special Session Room 2','Fervo, Stanford, Hephae, Zanskar. Joint session of the drilling automation, geothermal and drilling systems technical sections.',[D,A],{why:'The only panel that combines drilling, automation and AI, with the three technical sections that care about it in the room.'}),
+   o('t-pm1-sp4','SP04 Breaking Through the Recovery Factor Barrier: Novel Approaches to Increase EUR','Room 372 BCEF','Refracs, well spacing, EOR. Oxy chief completions engineer, Chevron, NETL, UT. Moderators George Koperna and Tom Blasingame.',[C],{why_alt:'Pick this instead if completions and EUR outweigh drilling automation for you.'}),
+   o('t-pm1-ss07','SS07 From Operations to the Boardroom: Digital & AI in Management Decisions','Special Session Room 1','ConocoPhillips AI director, Chevron, Chord, Baker Hughes (BV).',[A]),
+   o('t-pm1-tech','Technical sessions 14:00–17:00','Level 3','Unconfirmed list.',[O],{unc:1})]},
+ {id:'t-pm2',time:'15:00',end:'15:45',kind:'info',label:'Break',
+  options:[o('t-pm2-1','Afternoon break and ePosters 15:15–15:45','Hall B','A good gap to look at poster topics in Hall B.',[O])]},
+ {id:'t-pm3',time:'15:45',end:'16:45',kind:'choice',label:'Choose one',
+  rec:'t-pm3-ss10',
+  options:[
+   o('t-pm3-ss10','SS10 Shale EOR Decision-Making: Technology Readiness, Reservoir Data, Techno-Economics','Special Session Room 2','Chevron, Aramco Americas, NITEC, Continental. Moderated by Reza Barati.',[C,O],{why:'The closest fit to completions and unconventional engineering models in this slot.'}),
+   o('t-pm3-ss09','SS09 Legacy Well Risk: The Key to Reliable Carbon Storage Containment','Special Session Room 1','Well integrity for CO₂ storage.',[D,O]),
+   o('t-pm3-tech','Technical session in progress (to 17:00)','Level 3','Unconfirmed list. Use if a specific paper catches your eye.',[O],{unc:1})]},
+ {id:'t-eve',time:'16:45',end:'19:00',kind:'info',label:'Before the banquet',
+  options:[o('t-eve-1','Startup Village Awards 16:00–17:00 (Booth 1023); Young Member Celebration 16:30–18:30 (Hall C)','Hall B, Hall C','About 90 minutes of buffer. Banquet reception starts at 18:30.',[O])]},
+ {id:'t-banq',time:'18:30',end:'22:00',kind:'fixed',label:'Your ticket',
+  options:[o('t-banq-1','2026 Awards Banquet','Reception: Grand Ballroom Foyer, Level 3. Dinner: Grand Ballroom AB','Reception 18:30–19:00, banquet 19:30–22:00.',[O])]}
+],
+fri:[
+ {id:'f-am',time:'08:30',end:'10:30',kind:'choice',label:'Morning, no confirmed pick yet',
+  note:'The Friday technical session list was not in the pasted text. The candidates from Thursday\'s morning block may be here instead. Send me the Friday tab and I will rank them.',
+  rec:null,
+  options:[
+   o('f-am-sp5','SP05 Maintaining Critical Technical Talent as Oil and Gas Companies Evolve (08:45–09:45)','Room 372 BCEF','The printed abstract is about contract models beyond day rates, so the title and abstract do not match. Panel includes ExxonMobil, SLB, Zentry AI, OU.',[O]),
+   o('f-am-tech','Technical sessions 08:30–11:30','Level 3','Unconfirmed list.',[O],{unc:1})]},
+ {id:'f-mid',time:'10:30',end:'11:30',kind:'choice',label:'Choose one',
+  rec:'f-mid-ss12',
+  options:[
+   o('f-mid-ss12','SS12 Novel Wellbore Geometry: "U" Shaped Wellbores, Impact and Issues','Special Session Room 2','Drilling, completions and reservoir leaders: Admiral Permian, Ascent, DET Consulting. Moderated by Chevron\'s geomechanics CoE.',[D,C],{why:'Pure drilling plus completions content. You are already deep in agentic AI from your own panel.'}),
+   o('f-mid-ss11','SS11 From Copilot to Co-Worker: Is Oil & Gas Ready to Trust Agentic AI to Execute E&P Decisions?','Special Session Room 1','Petrobras, Chevron, Darcy Partners, and your Devon colleague Lorenzo Wilborn. Moderated by Supriya Gupta (SLB).',[A],{why_alt:'Pick this instead if you want the executive view of agentic AI, a direct follow-on to your panel.'}),
+   o('f-mid-tech','Technical sessions 08:30–11:30','Level 3','Unconfirmed list.',[O],{unc:1})]},
+ {id:'f-lunch',time:'11:30',end:'14:00',kind:'info',label:'Open',
+  options:[o('f-lunch-1','Exhibit floor closes at 14:00. Hiring event 10:00–14:00 in Hall C.','Hall B, Hall C','The President\'s Luncheon (11:45–13:15) needs an advance ticket, which you did not mention.',[O])]},
+ {id:'f-pm',time:'14:00',end:'16:30',kind:'choice',label:'Last technical block',
+  note:'Unconfirmed list. Pick once the Friday program is in hand.',
+  rec:null,
+  options:[o('f-pm-tech','Technical sessions 14:00–16:30','Level 3','Unconfirmed list.',[O],{unc:1})]}
+]};
+
+var picks={};
+try{picks=JSON.parse(localStorage.getItem('atce26-picks')||'{}')||{}}catch(e){picks={}}
+function save(){try{localStorage.setItem('atce26-picks',JSON.stringify(picks))}catch(e){}}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function tagsHtml(t){return (t||[]).map(function(k){return '<span class="tag t-'+k+'">'+TAGN[k]+'</span>'}).join('')}
+function metaHtml(x){return '<p class="meta">'+esc(x.room)+(x.unc?' · unconfirmed':'')+'</p>'}
+
+function renderBlock(b){
+  var cur=picks[b.id]||b.rec;
+  var main=b.options.filter(function(x){return x.id===cur})[0];
+  var alts=b.options.filter(function(x){return x!==main});
+  var h='<div class="block"><div class="time">'+b.time+'<small>to '+b.end+'</small></div><div class="card '+b.kind+'">';
+  if(main){
+    var badge=b.kind==='fixed'?'<span class="badge b-fixed">'+esc(b.label)+'</span>':
+      b.kind==='choice'?'<span class="badge b-pick">Your pick</span>':'<span class="badge b-open">'+esc(b.label)+'</span>';
+    h+=badge+'<h3>'+esc(main.title)+'</h3>'+metaHtml(main);
+    if(main.note)h+='<p class="note">'+esc(main.note)+'</p>';
+    if(main.why&&cur===b.rec)h+='<p class="why">Why: '+esc(main.why)+'</p>';
+    h+='<div class="tags">'+tagsHtml(main.tags)+'</div>';
+  }else{
+    h+='<span class="badge b-open">'+esc(b.label)+'</span>';
+    if(b.note)h+='<p class="note">'+esc(b.note)+'</p>';
+  }
+  if(main&&b.note&&b.kind==='choice')h+='<p class="note">'+esc(b.note)+'</p>';
+  if(b.also)h+='<p class="note" style="color:var(--muted)">'+esc(b.also)+'</p>';
+  if(alts.length&&b.kind==='choice'){
+    h+='<div class="alts"><div class="lab">'+(main?'Other options':'Options')+' ('+alts.length+')</div>';
+    alts.forEach(function(x){
+      h+='<div class="alt"><div><div class="ti">'+esc(x.title)+'</div></div><button class="swap" data-block="'+b.id+'" data-opt="'+x.id+'">Pick this</button>'+
+        '<div class="sm">'+esc(x.room)+(x.unc?' · unconfirmed':'')+(x.note?' · '+esc(x.note):'')+(x.why_alt?' '+esc(x.why_alt):'')+'<div class="tags">'+tagsHtml(x.tags)+'</div></div></div>';
+    });
+    h+='</div>';
+  }
+  return h+'</div></div>';
+}
+
+var root=document.getElementById('day');
+var tabs=document.querySelectorAll('nav button');
+var current='wed';
+function show(day){
+  if(!DAYS[day])day='wed';
+  current=day;
+  root.innerHTML='<div style="display:grid;gap:14px">'+DAYS[day].map(renderBlock).join('')+'</div>';
+  tabs.forEach(function(t){t.setAttribute('aria-selected',t.dataset.day===day?'true':'false')});
+}
+tabs.forEach(function(t){t.addEventListener('click',function(){
+  try{history.replaceState(null,'','#'+t.dataset.day)}catch(e){}
+  show(t.dataset.day)})});
+root.addEventListener('click',function(e){
+  var b=e.target.closest('.swap');if(!b)return;
+  picks[b.dataset.block]=b.dataset.opt;save();
+  var y=window.scrollY;show(current);window.scrollTo(0,y);
+});
+var h=(location.hash||'').replace('#','');
+show(DAYS[h]?h:'wed');
+})();
+</script>
