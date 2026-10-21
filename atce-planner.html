@@ -291,6 +291,7 @@ function noteHtml(x){return x.note?'<p class="note">'+hl(x.note)+'</p>':''}
 function renderBlock(b){
   var cur=picks[b.id]||b.rec;
   var main=b.options.filter(function(x){return x.id===cur})[0];
+  if(!main&&b.kind!=='choice')main=b.options[0];
   var alts=b.options.filter(function(x){return x!==main});
   var h='<div class="block" id="b-'+b.id+'"><div class="time">'+b.time+'<small>to '+b.end+'</small></div><div class="card '+b.kind+'">';
   if(main){
