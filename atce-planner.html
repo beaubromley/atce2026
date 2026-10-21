@@ -121,9 +121,9 @@ function o(id,title,room,note,tags,extra){var x={id:id,title:title,room:room,not
 
 var DAYS={
 wed:[
- {id:'w-open',time:'10:00',end:'11:30',kind:'fixed',label:'Fixed',
+ {id:'w-open',time:'10:00',end:'11:30',kind:'fixed',label:'Opening session',
   options:[o('w-open-1','Opening General Session: Exploring New Horizons with Innovative Solutions','Grand Ballroom AB','Moderated by SPE President Jennifer Miskimins with Ahmed Alebri (ADNOC Onshore), Peter Larden (ExxonMobil), Lorenzo Simonelli (Baker Hughes) and Ezra Yacob (EOG). AI features in the discussion.',[O])]},
- {id:'w-lunch',time:'12:00',end:'13:45',kind:'fixed',label:'Your ticket',
+ {id:'w-lunch',time:'12:00',end:'13:45',kind:'fixed',label:'Keynote luncheon · your ticket',
   options:[o('w-lunch-1','Wednesday Keynote Luncheon: Global Energy and the Role of Molecules','Grand Ballroom C','Scott Tinker, Director Emeritus, Bureau of Economic Geology. The program says 13:45 and the at-a-glance page says 13:30, so plan to leave about 13:30.',[O])]},
  {id:'w-pm',time:'14:00',end:'15:15',kind:'choice',label:'Choose one, until you leave for your panel',
   note:'The 3-hour sessions run to 17:00, but your panel is at 15:45, so you get roughly the first 75 minutes. Because sessions are come and go, check paper times in the SPE app and start in the room with your preferred talk.',
@@ -185,7 +185,7 @@ thu:[
    o('t-pm3-tech','Technical session in progress (to 17:00)','Level 3','Unconfirmed list. Use if a specific paper catches your eye.',[O],{unc:1})]},
  {id:'t-eve',time:'16:45',end:'19:00',kind:'info',label:'Before the banquet',
   options:[o('t-eve-1','Startup Village Awards 16:00–17:00 (Booth 1023); Young Member Celebration 16:30–18:30 (Hall C)','Hall B, Hall C','About 90 minutes of buffer. Banquet reception starts at 18:30.',[O])]},
- {id:'t-banq',time:'18:30',end:'22:00',kind:'fixed',label:'Your ticket',
+ {id:'t-banq',time:'18:30',end:'22:00',kind:'fixed',label:'Awards banquet · your ticket',
   options:[o('t-banq-1','2026 Awards Banquet','Reception: Grand Ballroom Foyer, Level 3. Dinner: Grand Ballroom AB','Reception 18:30–19:00, banquet 19:30–22:00.',[O])]}
 ],
 fri:[
