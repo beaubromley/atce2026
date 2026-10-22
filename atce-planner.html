@@ -99,7 +99,18 @@ details.papers li{display:grid;grid-template-columns:96px 1fr;gap:10px;font-size
 .sel-next{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
 .unpick{float:right;font:500 12px var(--font-mono);padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
 .unpick:hover{border-color:var(--fixed);color:var(--fixed)}
-.nv-bar{display:flex;gap:8px;flex-wrap:wrap}
+.nv-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pk{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}
+.pk input{accent-color:var(--pick);width:16px;height:16px;margin:0}
+.pctl{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.sel .pctl{margin-top:10px}
+.pnum{font:400 11px var(--font-mono);color:var(--muted)}
+details.papers li details.notes{margin-top:4px;border-top:0;padding-top:0}
+.sub3{font-size:22px;font-weight:600;margin-top:6px}
+.wl{margin:8px 0 0;padding-left:18px;display:grid;gap:10px}
+.wl .org{color:var(--muted);font-size:13px}
+.wrap a{color:var(--pick)}
+button:disabled{opacity:.6;cursor:default}
 .act{font:500 13px var(--font-mono);padding:8px 14px;border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer}
 .nv-day{font-size:28px;font-weight:600;margin-top:10px}
 .when{font:500 12px var(--font-mono);color:var(--muted);margin-bottom:6px}
@@ -153,7 +164,7 @@ details.papers li{display:grid;grid-template-columns:96px 1fr;gap:10px;font-size
       <button role="tab" id="tab-wed" data-day="wed">Wed 21</button>
       <button role="tab" id="tab-thu" data-day="thu">Thu 22</button>
       <button role="tab" id="tab-fri" data-day="fri">Fri 23</button>
-      <button role="tab" id="tab-notes" data-day="notes">My notes</button>
+      <button role="tab" id="tab-notes" data-day="notes">Wrap-up</button>
     </nav>
     <div class="legend" aria-label="Topic tags">
       <span class="tag t-d">Drilling</span><span class="tag t-c">Completions</span><span class="tag t-ai">AI / data</span><span class="tag t-o">Other</span>
@@ -331,7 +342,9 @@ function peopleHtml(x){
 function papersHtml(x,open){
   if(!x.papers||!x.papers.length)return '';
   return '<details class="papers"'+(open?' open':'')+'><summary>Papers ('+x.papers.length+')</summary><ol>'+x.papers.map(function(p){
-    return '<li><span class="pt">'+hl(p[0])+'\u2013'+hl(p[1])+'</span><span class="pb"><span class="ptitle">'+hl(p[3])+'</span><span class="pauth" title="'+esc(p[4])+'">'+hl(p[4])+'</span></span></li>';
+    return '<li><span class="pt">'+hl(p[0])+'\u2013'+hl(p[1])+'</span><span class="pb"><span class="ptitle">'+hl(p[3])+'</span><span class="pauth" title="'+esc(p[4])+'">'+hl(p[4])+'</span>'+
+      '<span class="pctl"><label class="pk"><input type="checkbox" data-flag="saw-'+p[2]+'"'+chk('saw-'+p[2])+'> Saw it</label><label class="pk"><input type="checkbox" data-flag="look-'+p[2]+'"'+chk('look-'+p[2])+'> Look into</label><span class="pnum">'+speNo(p[2])+'</span></span>'+
+      noteBox('p-'+p[2],'Note')+'</span></li>';
   }).join('')+'</ol></details>';
 }
 function titleHtml(x){return (x.code?'<span class="code">'+hl(x.code)+'</span>':'')+hl(x.title)}
@@ -350,7 +363,7 @@ function renderBlock(b){
       h+='<div class="sel'+(i?' sel-next':'')+'">'+(b.kind==='choice'?'<button class="unpick" data-block="'+b.id+'" data-opt="'+m.id+'">Remove</button>':'')+
         badge+'<h3>'+titleHtml(m)+'</h3>'+metaHtml(m)+noteHtml(m);
       if(m.why&&recs(b).indexOf(m.id)>-1)h+='<p class="why">'+hl(m.why)+'</p>';
-      h+=peopleHtml(m)+papersHtml(m,true)+'<div class="tags">'+tagsHtml(m.tags)+'</div>'+(b.kind!=='info'?noteBox(nkey(m)):'')+'</div>';
+      h+=peopleHtml(m)+papersHtml(m,true)+'<div class="tags">'+tagsHtml(m.tags)+'</div>'+(b.kind!=='info'&&!m.papers?flagsRow(nkey(m)):'')+(b.kind!=='info'?noteBox(nkey(m)):'')+'</div>';
     });
   }else{
     h+='<span class="badge b-open">'+esc(b.label)+'</span>';
@@ -463,14 +476,28 @@ function pushRemote(k){
       function(e){setStatus(e&&e.code==='quota_exceeded'?'Notes storage is full.':'Could not save to your account. Notes are kept on this device.')});
   });
 }
-function onNoteInput(ta){
-  var k=ta.dataset.note;
-  notes[k]=ta.value;pending[k]=1;persistLocal();autosize(ta);
-  var d=ta.closest('details');if(d)d.classList.toggle('has',!!ta.value.trim());
-  if(store){setStatus('Saving…');clearTimeout(timers[k]);timers[k]=setTimeout(function(){pushRemote(k)},700)}
+function setKey(k,v,delay){
+  notes[k]=v;pending[k]=1;persistLocal();
+  if(store&&synced){setStatus('Saving…');clearTimeout(timers[k]);timers[k]=setTimeout(function(){pushRemote(k)},delay)}
 }
+// Wednesday technical-session notes were once keyed 'w-pm-NN'; carry them to 'tech-NN' without deleting the old key
+function migrateLegacy(){
+  Object.keys(notes).forEach(function(k){
+    var m=/^w-pm-(\d\d)$/.exec(k);
+    if(!m||!(notes[k]||'').trim())return;
+    var t='tech-'+m[1],old=notes[k].trim(),cur=(notes[t]||'').trim();
+    if(cur.indexOf(old)>-1)return;
+    setKey(t,cur?cur+'\n\n'+old:old,0);
+  });
+}
+function onNoteInput(ta){
+  autosize(ta);
+  var d=ta.closest('details');if(d)d.classList.toggle('has',!!ta.value.trim());
+  setKey(ta.dataset.note,ta.value,700);
+}
+document.addEventListener('change',function(e){var t=e.target;if(t.matches&&t.matches('input[data-flag]'))setKey(t.dataset.flag,t.checked?'1':'',0)});
 document.addEventListener('input',function(e){if(e.target.matches&&e.target.matches('textarea[data-note]'))onNoteInput(e.target)});
-document.addEventListener('toggle',function(e){var ta=e.target.querySelector&&e.target.querySelector('textarea[data-note]');if(ta)autosize(ta)},true);
+document.addEventListener('toggle',function(e){if(e.target.classList&&e.target.classList.contains('papers')){sizeAll();return}var ta=e.target.querySelector&&e.target.querySelector('textarea[data-note]');if(ta)autosize(ta)},true);
 function refreshNotes(){
   var ae=document.activeElement,typing=!!(ae&&ae.matches&&ae.matches('textarea[data-note]'));
   document.querySelectorAll('textarea[data-note]').forEach(function(ta){
@@ -478,6 +505,7 @@ function refreshNotes(){
     var v=notes[ta.dataset.note]||'';if(ta.value!==v){ta.value=v;autosize(ta)}
   });
   document.querySelectorAll('details.notes').forEach(function(d){d.classList.toggle('has',!!(notes[d.dataset.k]||'').trim())});
+  document.querySelectorAll('input[data-flag]').forEach(function(i){i.checked=notes[i.dataset.flag]==='1'});
   if(typing)return;
   if(!res.hidden)runSearch();else if(current==='notes')show('notes');
 }
@@ -491,41 +519,163 @@ function onRemote(remote){
     Object.keys(pending).forEach(function(k){push.push(k)});
   }
   Object.keys(pending).forEach(function(k){merged[k]=notes[k]});
-  notes=merged;persistLocal();refreshNotes();
+  var changed=JSON.stringify(notes)!==JSON.stringify(merged);
+  notes=merged;persistLocal();
+  migrateLegacy();
+  if(changed||first)refreshNotes();
   push.forEach(pushRemote);
 }
-function renderNotesView(){
-  var h='<div class="notesview"><div class="nv-bar"><button class="act" id="exp-file" type="button">Save as file</button><button class="act" id="exp-copy" type="button">Copy all</button></div><div id="exp-out" aria-live="polite"></div>';
-  var any=false,seen={};
-  Object.keys(DAYS).forEach(function(day){
-    h+='<h2 class="nv-day">'+DAYN[day]+'</h2><div class="daynote">'+noteBox('day-'+day,'Notes for the day')+'</div>';
-    DAYS[day].forEach(function(b){b.options.forEach(function(x){
-      var nk=nkey(x);
-      if(!(notes[nk]||'').trim()||seen[nk])return;
-      seen[nk]=1;any=true;
-      h+='<div class="card"><div class="when">'+rng(b)+'</div><h3>'+titleHtml(x)+'</h3>'+metaHtml(x)+noteBox(nk)+'</div>';
-    })});
+// ---- wrap-up: attended presentations with SPE paper numbers, all notes, things to look into, one export
+var TS={},PAPERS=[],DORD={wed:0,thu:1,fri:2};
+TECH.forEach(function(s){TS[s.code]=s;s.papers.forEach(function(p){PAPERS.push({s:s,p:p})})});
+PAPERS.sort(function(x,y){return DORD[x.s.day]-DORD[y.s.day]||(x.p[0]<y.p[0]?-1:x.p[0]>y.p[0]?1:0)||(x.s.code<y.s.code?-1:1)});
+var LIDEFAULT=[
+ {id:'cem-four',title:'Which four cementing simulators does "Stranger Things 5" compare?',
+  detail:'Paper 234013 by J. Shine, Thu 16:10, Room 370 CF. The program lists no abstract. Ask in Q&A or read the paper in OnePetro. Is Landmark WELLPLAN one of them?',links:[]},
+ {id:'cem-tools',title:'Cementing simulators to evaluate',
+  detail:'Confirmed: CEMPRO (LINQX) and Baker Hughes CemMaster. From memory, not verified: SLB CemCADE and Halliburton/Landmark OptiCem. Check whether WELLPLAN has a cementing module.',
+  links:[['CEMPRO (LINQX)','https://linqx.io/cempro/'],['Baker Hughes CemMaster','https://bakerhughes.com/de/node/41391']]},
+ {id:'cem-build',title:'Reading list for building a cement placement model',
+  detail:'Suggested order: 1D hydraulics base, centralizer standoff, 2D gap-averaged displacement, then validation against experiments. Abstracts only were read.',
+  links:[
+   ['SPE-167922-MS, Intermixing of Cementing Fluids (Shine)','https://onepetro.org/SPEDC/proceedings-abstract/14DC/All-14DC/SPE-167922-MS/212292'],
+   ['SPE-21686, Displacements in Eccentric Annuli in Deviated Wells','https://onepetro.org/SPEOKOG/proceedings-abstract/91POS/91POS/SPE-21686-MS/52356'],
+   ['SPE-132480, 3D displacement in slim wells','https://onepetro.org/SPETTCE/proceedings-abstract/10APOR/10APOR/SPE-132480-MS/101625'],
+   ['SPE-191255-MS, Casing centralization and pipe movement','https://onepetro.org/SPETTCE/proceedings-abstract/18TTCE/18TTCE/D011S003R002/215505'],
+   ['Mud/Cement Displacement in Vertical Eccentric Annuli (SPE D&C)','https://onepetro.org/DC/article-abstract/35/02/297/450711/Mud-Cement-Displacement-in-Vertical-Eccentric?redirectedFrom=fulltext'],
+   ['Zhang & Frigaard, Hele-Shaw eccentric annulus model','https://www.researchgate.net/publication/228990405_Mud_removal_and_cement_placement_during_primary_cementing_of_an_oil_well-Laminar_non-Newtonian_displacements_in_an_eccentric_annular_Hele-Shaw_cell'],
+   ['Dispersion of Herschel-Bulkley fluids (JFM)','https://www.cambridge.org/core/journals/journal-of-fluid-mechanics/article/capturing-dispersion-of-herschelbulkley-fluids-in-miscible-primary-cementing-displacement-flows/E124A90A1D80FF07397F38C9337632E8'],
+   ['AADE paper on a fast multiphase cementing simulator','https://www.aade.org/download_file/1311/394'],
+   ['Centralizer standoff, API RP 10D-2 and finite-beam approach','https://congress.cimne.com/iacm-eccomas2014/admin/files/fileabstract/a1297.pdf']]}
+];
+function isOn(k){return notes[k]==='1'}
+function chk(k){return isOn(k)?' checked':''}
+function speNo(n){return 'SPE-'+n+'-MS'}
+function opLink(n){return 'https://onepetro.org/search?q='+speNo(n)}
+function flagsRow(nk){
+  return '<span class="pctl"><label class="pk"><input type="checkbox" data-flag="saw-'+nk+'"'+chk('saw-'+nk)+'> I attended</label><label class="pk"><input type="checkbox" data-flag="look-'+nk+'"'+chk('look-'+nk)+'> Look into</label></span>';
+}
+function eachSession(fn){
+  var seen={};
+  Object.keys(DAYS).forEach(function(day){DAYS[day].forEach(function(b){b.options.forEach(function(x){
+    var k=nkey(x);if(seen[k])return;seen[k]=1;fn(day,b,x,k);
+  })})});
+}
+function sessionsWith(prefix){
+  var out=[];
+  eachSession(function(day,b,x,k){if(!x.papers&&isOn(prefix+k))out.push({day:day,b:b,x:x})});
+  return out;
+}
+function papersWith(prefix){return PAPERS.filter(function(r){return isOn(prefix+r.p[2])})}
+function paperNotes(x){
+  if(!x.papers||!TS[x.code])return [];
+  return TS[x.code].papers.filter(function(p){return (notes['p-'+p[2]]||'').trim()}).map(function(p){return {p:p,t:notes['p-'+p[2]].trim()}});
+}
+function noteDays(){
+  return Object.keys(DAYS).map(function(day){
+    var items=[];
+    eachSession(function(d,b,x,k){
+      if(d!==day)return;
+      var sn=(notes[k]||'').trim(),pn=paperNotes(x);
+      if(sn||pn.length)items.push({b:b,x:x,k:k,sn:sn,pn:pn});
+    });
+    return {day:day,dn:(notes['day-'+day]||'').trim(),items:items};
   });
-  if(!any)h+='<p class="empty">Notes you add to a session card show up here, in schedule order.</p>';
+}
+function paperLineHtml(r){
+  return '<li><b>'+speNo(r.p[2])+'</b> '+esc(r.p[3])+'<br><span class="org">'+esc(r.p[4])+'</span><br><span class="org">'+DAYN[r.s.day]+' '+r.p[0]+'–'+r.p[1]+' · '+esc(r.s.room)+' · session '+r.s.code+'</span> <a href="'+opLink(r.p[2])+'" target="_blank" rel="noopener">Search OnePetro</a></li>';
+}
+function sessLineHtml(r){
+  return '<li><b>'+esc(r.x.code||'')+'</b> '+esc(r.x.title)+'<br><span class="org">'+DAYN[r.day]+' '+rng(r.b)+' · '+esc(r.x.room)+'</span></li>';
+}
+function renderNotesView(){
+  var h='<div class="notesview wrap"><div class="nv-bar"><button class="act" id="exp-file" type="button">Save wrap-up as file</button><button class="act" id="exp-copy" type="button">Copy all</button>'+
+    '<label class="pk"><input type="checkbox" id="inc-all"> Include the full program with every paper number</label></div><div id="exp-out" aria-live="polite"></div>';
+  h+='<h2 class="nv-day">Summary</h2><div class="daynote">'+noteBox('summary','Summary of my notes',true)+
+    '<div class="nv-bar" style="margin-top:10px"><button class="act" id="sum-btn" type="button">Summarize my notes with Claude</button><span id="sum-out" class="empty" aria-live="polite"></span></div></div>';
+  var as=sessionsWith('saw-'),ap=papersWith('saw-');
+  h+='<h2 class="nv-day">Presentations I attended</h2>';
+  if(!as.length&&!ap.length)h+='<p class="empty">Tick "Saw it" on a paper or "I attended" on a session and it lands here with its SPE paper number.</p>';
+  if(as.length)h+='<h3 class="sub3">Sessions and panels</h3><ul class="wl">'+as.map(sessLineHtml).join('')+'</ul>';
+  if(ap.length)h+='<h3 class="sub3">Papers</h3><ul class="wl">'+ap.map(paperLineHtml).join('')+'</ul>';
+  h+='<h2 class="nv-day">Notes</h2>';
+  noteDays().forEach(function(d){
+    h+='<h3 class="sub3">'+DAYN[d.day]+'</h3><div class="daynote">'+noteBox('day-'+d.day,'Notes for the day')+'</div>';
+    d.items.forEach(function(it){
+      h+='<div class="card"><div class="when">'+rng(it.b)+'</div><h3>'+titleHtml(it.x)+'</h3>'+metaHtml(it.x)+noteBox(it.k,'Session notes')+
+        it.pn.map(function(q){return noteBox('p-'+q.p[2],q.p[3]+' ('+speNo(q.p[2])+')')}).join('')+'</div>';
+    });
+  });
+  var ls=sessionsWith('look-'),lp=papersWith('look-');
+  h+='<h2 class="nv-day">To look into</h2>';
+  if(ls.length)h+='<h3 class="sub3">Sessions I flagged</h3><ul class="wl">'+ls.map(sessLineHtml).join('')+'</ul>';
+  if(lp.length)h+='<h3 class="sub3">Papers I flagged</h3><ul class="wl">'+lp.map(paperLineHtml).join('')+'</ul>';
+  h+='<h3 class="sub3">Suggested follow-ups</h3>'+LIDEFAULT.map(function(it){
+    return '<div class="card"><label class="pk"><input type="checkbox" data-flag="lidone-'+it.id+'"'+chk('lidone-'+it.id)+'> Done</label><h3>'+esc(it.title)+'</h3><p class="note">'+esc(it.detail)+'</p>'+
+      (it.links.length?'<ul class="wl">'+it.links.map(function(l){return '<li><a href="'+l[1]+'" target="_blank" rel="noopener">'+esc(l[0])+'</a></li>'}).join('')+'</ul>':'')+'</div>';
+  }).join('');
+  h+='<div class="daynote" style="margin-top:6px">'+noteBox('lookinto-free','Other things to look into',true)+'</div>';
   return h+'</div>';
 }
-function exportText(){
-  var out=['# ATCE 2026 notes',''],n=0,seen={};
-  Object.keys(DAYS).forEach(function(day){
-    var part=[];
-    var dn=(notes['day-'+day]||'').trim();if(dn)part.push(dn,'');
-    DAYS[day].forEach(function(b){b.options.forEach(function(x){
-      var nk=nkey(x),v=(notes[nk]||'').trim();if(!v||seen[nk])return;
-      seen[nk]=1;
-      part.push('### '+rng(b)+' · '+(x.code?x.code+' ':'')+x.title,'_'+x.room+'_','',v,'');
-    })});
-    if(part.length){n++;out.push('## '+DAYN[day],'');out=out.concat(part)}
-  });
-  return n?out.join('\n'):'';
+function paperMd(r){
+  return '- **'+speNo(r.p[2])+'** '+r.p[3]+'. '+r.p[4]+'. '+DAYN[r.s.day]+' '+r.p[0]+'–'+r.p[1]+', '+r.s.room+', session '+r.s.code+'. [Search OnePetro]('+opLink(r.p[2])+')';
 }
+function report(opt){
+  opt=opt||{};
+  var o=['# ATCE 2026 wrap-up',''],has=false;
+  var sm=(notes.summary||'').trim();
+  if(opt.summary!==false&&sm){has=true;o.push('## Summary','',sm,'')}
+  var as=sessionsWith('saw-'),ap=papersWith('saw-');
+  if(as.length||ap.length){
+    has=true;o.push('## Presentations attended','');
+    if(as.length){o.push('### Sessions and panels','');as.forEach(function(r){o.push('- '+(r.x.code?r.x.code+' ':'')+r.x.title+' — '+DAYN[r.day]+' '+rng(r.b)+', '+r.x.room)});o.push('')}
+    if(ap.length){o.push('### Papers','');ap.forEach(function(r){o.push(paperMd(r))});o.push('')}
+  }
+  var nt=[];
+  noteDays().forEach(function(d){
+    var part=[];
+    if(d.dn)part.push(d.dn,'');
+    d.items.forEach(function(it){
+      part.push('#### '+rng(it.b)+' · '+(it.x.code?it.x.code+' ':'')+it.x.title,'_'+it.x.room+'_','');
+      if(it.sn)part.push(it.sn,'');
+      it.pn.forEach(function(q){part.push('##### '+speNo(q.p[2])+' '+q.p[3],'',q.t,'')});
+    });
+    if(part.length){nt.push('### '+DAYN[d.day],'');nt=nt.concat(part)}
+  });
+  if(nt.length){has=true;o.push('## Notes','');o=o.concat(nt)}
+  var ls=sessionsWith('look-'),lp=papersWith('look-'),free=(notes['lookinto-free']||'').trim();
+  has=true;
+  o.push('## To look into','');
+  if(ls.length||lp.length){
+    o.push('### Flagged','');
+    ls.forEach(function(r){o.push('- '+(r.x.code?r.x.code+' ':'')+r.x.title+' — '+DAYN[r.day]+' '+rng(r.b))});
+    lp.forEach(function(r){o.push(paperMd(r))});
+    o.push('');
+  }
+  o.push('### Follow-ups','');
+  LIDEFAULT.forEach(function(it){
+    o.push('- ['+(isOn('lidone-'+it.id)?'x':' ')+'] **'+it.title+'** '+it.detail);
+    it.links.forEach(function(l){o.push('  - ['+l[0]+']('+l[1]+')')});
+  });
+  o.push('');
+  if(free)o.push('### Other','',free,'');
+  if(opt.catalog){
+    o.push('## Full program: technical papers','');
+    ['wed','thu','fri'].forEach(function(day){
+      o.push('### '+DAYN[day],'');
+      TECH.filter(function(s){return s.day===day}).sort(function(x,y){return x.start<y.start?-1:x.start>y.start?1:(x.code<y.code?-1:1)}).forEach(function(s){
+        o.push('#### '+s.code+' '+s.title,'_'+s.start+'–'+s.end+', '+s.room+'_','');
+        s.papers.forEach(function(p){o.push('- '+p[0]+' **'+speNo(p[2])+'** '+p[3]+'. '+p[4])});
+        o.push('');
+      });
+    });
+  }
+  return o.join('\n');
+}
+function exportText(){var c=document.getElementById('inc-all');return report({catalog:!!(c&&c.checked)})}
 function showManual(text,msg){
   var o=document.getElementById('exp-out');if(!o)return;
-  o.innerHTML=esc(msg)+'<textarea readonly aria-label="All notes">'+esc(text)+'</textarea>';
+  o.innerHTML=esc(msg)+'<textarea readonly aria-label="Wrap-up text">'+esc(text)+'</textarea>';
   var ta=o.querySelector('textarea');ta.focus();ta.select();
 }
 function say(msg){var o=document.getElementById('exp-out');if(o)o.textContent=msg}
@@ -533,19 +683,36 @@ document.addEventListener('click',function(e){
   var f=e.target.closest&&e.target.closest('#exp-file'),c=e.target.closest&&e.target.closest('#exp-copy');
   if(!f&&!c)return;
   var text=exportText();
-  if(!text){say('No notes to export yet.');return}
   if(c){
     var p=(navigator.clipboard&&navigator.clipboard.writeText)?navigator.clipboard.writeText(text):Promise.reject();
-    p.then(function(){say('Copied all notes.')},function(){showManual(text,'Copy is blocked here. The text is selected below, press Ctrl/Cmd+C.')});
+    p.then(function(){say('Copied the wrap-up.')},function(){showManual(text,'Copy is blocked here. The text is selected below, press Ctrl/Cmd+C.')});
     return;
   }
   use('downloads').then(function(dl){
     if(!dl){showManual(text,'Saving files is not available here. Copy the text below.');return}
-    dl.save({filename:'atce-2026-notes.md',data:text}).then(function(){say('Saved atce-2026-notes.md')},function(err){
+    dl.save({filename:'atce-2026-wrapup.md',data:text}).then(function(){say('Saved atce-2026-wrapup.md')},function(err){
       if(err&&err.code==='declined')return;
       showManual(text,'Could not save a file. Copy the text below.');
     });
   });
+});
+document.addEventListener('click',function(e){
+  var s=e.target.closest&&e.target.closest('#sum-btn');
+  if(!s)return;
+  var out=document.getElementById('sum-out'),text=report({summary:false});
+  if(!/^####/m.test(text)&&!/^## Presentations attended/m.test(text)){out.textContent='Add some notes or mark presentations first.';return}
+  s.disabled=true;out.textContent='Summarizing…';
+  use('sample').then(function(sample){
+    if(!sample){out.textContent='Summaries are not available in this view.';return}
+    return sample('These are my notes from the 2026 SPE Annual Technical Conference and Exhibition (ATCE). I work on drilling, completions and AI. Write a summary in Markdown: key takeaways grouped by theme, notable papers and people, and a short list of follow-ups. Use only what is in the notes.\n\n'+text).then(function(r){
+      var ta=document.querySelector('textarea[data-note="summary"]');
+      setKey('summary',r.text,0);
+      if(ta){ta.value=r.text;autosize(ta);var d=ta.closest('details');if(d){d.open=true;d.classList.add('has')}}
+      out.textContent='Saved. Edit it freely.';
+    });
+  }).catch(function(err){
+    out.textContent=(err&&err.code==='not_granted')?'This page is not allowed to ask Claude.':'Could not summarize. Try again in a moment.';
+  }).then(function(){s.disabled=false});
 });
 // private store: data/users/<id>/notes holds { items: { sessionId: text } }
 use('user').then(function(user){
@@ -560,6 +727,7 @@ use('user').then(function(user){
   });
 }).catch(function(){setStatus('Notes are saved on this device only.')});
 
+migrateLegacy();
 var h=(location.hash||'').replace('#','');
 show((DAYS[h]||h==='notes')?h:'wed');
 })();
